@@ -1,36 +1,28 @@
 import streamlit as st
-from st_audiorec import st_audiorec  # New component for browser recording
+from st_audiorec import st_audiorec
 import speech_recognition as sr
 import io
 from deep_translator import GoogleTranslator
 
-st.set_page_config(page_title="FYP: English-Yoruba", page_icon="🌍")
+st.title("🌍 English to Yoruba Translator")
 
-st.title("🌍 English to Yoruba Speech Translator")
-st.write("Record your voice below to translate to Yoruba.")
-
-# 1. Browser-based Recording
+# The recorder component
 wav_audio_data = st_audiorec()
 
 if wav_audio_data is not None:
-    # 2. Process the audio in memory
     r = sr.Recognizer()
+    # Convert bytes to an audio file object the library can read
     audio_file = io.BytesIO(wav_audio_data)
     
     with sr.AudioFile(audio_file) as source:
         audio = r.record(source)
-        
         try:
-            with st.spinner("Transcribing..."):
-                # 3. Speech to Text
-                english_text = r.recognize_google(audio)
-                st.subheader("English Transcription:")
-                st.info(english_text)
+            # English Transcription
+            eng_text = r.recognize_google(audio)
+            st.info(f"English: {eng_text}")
 
-                # 4. Translation
-                translated = GoogleTranslator(source='en', target='yo').translate(english_text)
-                st.subheader("Yoruba Translation:")
-                st.success(translated)
-                
+            # Yoruba Translation
+            yor_text = GoogleTranslator(source='en', target='yo').translate(eng_text)
+            st.success(f"Yoruba: {yor_text}")
         except Exception as e:
-            st.error("Could not process audio. Please speak clearly.")
+            st.error("Please speak more clearly or check your internet.")
