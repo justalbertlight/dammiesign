@@ -1,7 +1,5 @@
 streamlit
-openai-whisper
-transformers
-torch
-sentencepiece
-
-
+SpeechRecognition
+deep-translator
+PyAudio
+streamlit-audio-recorder
