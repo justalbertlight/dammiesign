@@ -2,4 +2,6 @@ streamlit
 openai-whisper
 transformers
 torch
+sentencepiece
+
 
