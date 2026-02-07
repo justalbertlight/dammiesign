@@ -1,2 +1,2 @@
-ffmpeg
-
+libasound2-dev
+python3-all-dev
