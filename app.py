@@ -6,12 +6,12 @@ import os
 # Load Models
 @st.cache_resource
 def load_models():
-    # 'tiny' is better for Streamlit Cloud to avoid memory crashes
+    # 'tiny' ensures the app doesn't crash from low memory
     stt_model = whisper.load_model("tiny") 
     
-    # Updated the task name to 'translation' and simplified the call
+    # Using 'text2text-generation' avoids the KeyError: 'translation'
     translator = pipeline(
-        "translation", 
+        "text2text-generation", 
         model="facebook/nllb-200-distilled-600M"
     )
     return stt_model, translator
@@ -20,31 +20,40 @@ stt_model, translator = load_models()
 
 # UI Layout
 st.title("English Speech to Yoruba Text")
-audio_file = st.file_uploader("Upload English Audio", type=["wav", "mp3", "m4a"])
+st.markdown("Upload an English audio file to get the Yoruba translation.")
+
+audio_file = st.file_uploader("Upload Audio", type=["wav", "mp3", "m4a"])
 
 if audio_file:
     # Save temp file
     with open("temp_audio", "wb") as f:
         f.write(audio_file.read())
 
-    # 1. Speech to Text
-    st.info("Transcribing English...")
-    result = stt_model.transcribe("temp_audio")
-    english_text = result["text"]
-    st.subheader("English Transcription:")
-    st.write(english_text)
+    try:
+        # 1. Speech to Text
+        st.info("Step 1: Transcribing English...")
+        result = stt_model.transcribe("temp_audio")
+        english_text = result["text"]
+        
+        st.subheader("English Transcription:")
+        st.info(english_text)
 
-    # 2. Translation
-    st.info("Translating to Yoruba...")
-    # Specify the source and target language codes here inside the call
-    translated = translator(
-        english_text, 
-        src_lang="eng_Latn", 
-        tgt_lang="yor_Latn"
-    )
-    yoruba_text = translated[0]['translation_text']
+        # 2. Translation
+        st.info("Step 2: Translating to Yoruba...")
+        # Note: 'forced_bos_token_id' or 'tgt_lang' is handled here
+        translated = translator(
+            english_text, 
+            forced_bos_token_id=translator.tokenizer.lang_code_to_id["yor_Latn"],
+            max_length=512
+        )
+        yoruba_text = translated[0]['generated_text']
+        
+        st.subheader("Yoruba Translation:")
+        st.success(yoruba_text)
+
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
     
-    st.subheader("Yoruba Translation:")
-    st.success(yoruba_text)
-    
-    os.remove("temp_audio")
+    finally:
+        if os.path.exists("temp_audio"):
+            os.remove("temp_audio")
