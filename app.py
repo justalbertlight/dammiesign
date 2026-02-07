@@ -1,59 +1,58 @@
 import streamlit as st
 import whisper
-from transformers import pipeline
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+import torch
 import os
 
 # Load Models
 @st.cache_resource
 def load_models():
-    # 'tiny' ensures the app doesn't crash from low memory
+    # Whisper for Speech-to-Text
     stt_model = whisper.load_model("tiny") 
     
-    # Using 'text2text-generation' avoids the KeyError: 'translation'
-    translator = pipeline(
-        "text2text-generation", 
-        model="facebook/nllb-200-distilled-600M"
-    )
-    return stt_model, translator
+    # Direct loading for Translation (NLLB)
+    model_name = "facebook/nllb-200-distilled-600M"
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    
+    return stt_model, tokenizer, model
 
-stt_model, translator = load_models()
+stt_model, tokenizer, model = load_models()
 
-# UI Layout
 st.title("English Speech to Yoruba Text")
-st.markdown("Upload an English audio file to get the Yoruba translation.")
 
-audio_file = st.file_uploader("Upload Audio", type=["wav", "mp3", "m4a"])
+audio_file = st.file_uploader("Upload English Audio", type=["wav", "mp3", "m4a"])
 
 if audio_file:
-    # Save temp file
     with open("temp_audio", "wb") as f:
         f.write(audio_file.read())
 
     try:
         # 1. Speech to Text
-        st.info("Step 1: Transcribing English...")
-        result = stt_model.transcribe("temp_audio")
-        english_text = result["text"]
-        
-        st.subheader("English Transcription:")
-        st.info(english_text)
+        st.info("Transcribing...")
+        stt_result = stt_model.transcribe("temp_audio")
+        english_text = stt_result["text"]
+        st.subheader("English:")
+        st.write(english_text)
 
         # 2. Translation
-        st.info("Step 2: Translating to Yoruba...")
-        # Note: 'forced_bos_token_id' or 'tgt_lang' is handled here
-        translated = translator(
-            english_text, 
-            forced_bos_token_id=translator.tokenizer.lang_code_to_id["yor_Latn"],
-            max_length=512
-        )
-        yoruba_text = translated[0]['generated_text']
+        st.info("Translating...")
+        inputs = tokenizer(english_text, return_tensors="pt")
         
-        st.subheader("Yoruba Translation:")
+        # Manually set the Yoruba target language
+        translated_tokens = model.generate(
+            **inputs, 
+            forced_bos_token_id=tokenizer.lang_code_to_id["yor_Latn"], 
+            max_length=100
+        )
+        
+        yoruba_text = tokenizer.batch_decode(translated_tokens, skip_special_tokens=True)[0]
+        
+        st.subheader("Yoruba:")
         st.success(yoruba_text)
 
     except Exception as e:
-        st.error(f"An error occurred: {e}")
-    
+        st.error(f"Error: {e}")
     finally:
         if os.path.exists("temp_audio"):
             os.remove("temp_audio")
